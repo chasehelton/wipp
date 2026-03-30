@@ -99,12 +99,12 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
     case "repos": {
       const repos = getAllRepos();
       if (repos.length === 0) {
-        await interaction.reply("No repositories registered.");
+        await interaction.reply("No repos configured.");
       } else {
-        const lines = repos.map(
-          (r) => `• **${r.name}** — \`${r.local_path}\` (default branch: \`${r.default_branch}\`)`,
-        );
-        await interaction.reply(`**Registered Repositories (${repos.length})**\n${lines.join("\n")}`);
+        const list = repos
+          .map((r) => `• **${r.name}** — \`${r.local_path}\` (branch: \`${r.default_branch}\`)`)
+          .join("\n");
+        await interaction.reply(`**Repos (${repos.length})**\n${list}`);
       }
       break;
     }
