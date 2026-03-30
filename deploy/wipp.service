@@ -1,0 +1,28 @@
+[Unit]
+Description=Wipp AI Coding Assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node /home/pi/wipp/dist/daemon.js
+WorkingDirectory=/home/pi/wipp
+EnvironmentFile=/home/pi/.wipp/.env
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wipp
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/.wipp /home/pi/repos
+
+# Resource limits for Pi 4 (8GB)
+MemoryMax=4G
+MemoryHigh=3G
+
+[Install]
+WantedBy=default.target

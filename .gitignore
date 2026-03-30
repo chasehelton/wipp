@@ -1,0 +1,18 @@
+/research
+/plans
+
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+
+# SQLite
+*.db
+*.db-journal
+
+# OS
+.DS_Store

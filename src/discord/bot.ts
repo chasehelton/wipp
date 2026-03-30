@@ -1,0 +1,168 @@
+import {
+  Client,
+  GatewayIntentBits,
+  Events,
+  Partials,
+  REST,
+  Routes,
+  type Message,
+  type Interaction,
+  type SendableChannels,
+} from "discord.js";
+import { loadConfig, type Config } from "../config.js";
+import { messageQueue } from "../queue.js";
+import { createLogger } from "../utils/logger.js";
+import { chunkMessage, formatError } from "./formatter.js";
+import { commands } from "./commands.js";
+
+const log = createLogger("discord");
+
+let _client: Client | null = null;
+let _config: Config;
+let _proactiveChannel: SendableChannels | null = null;
+
+function isAuthorized(userId: string): boolean {
+  return userId === _config.DISCORD_AUTHORIZED_USER_ID;
+}
+
+async function handleMessage(message: Message): Promise<void> {
+  if (message.author.bot) return;
+  if (!isAuthorized(message.author.id)) return;
+
+  const content = message.content.trim();
+  if (!content) return;
+
+  const channel = message.channel;
+  if (!channel.isSendable()) return;
+
+  // Store the channel for proactive messages
+  _proactiveChannel = channel;
+
+  // Show typing indicator
+  const typingInterval = setInterval(() => {
+    void channel.sendTyping();
+  }, 4000);
+  void channel.sendTyping();
+
+  try {
+    const response = await messageQueue.enqueue(content, "discord");
+    clearInterval(typingInterval);
+
+    const chunks = chunkMessage(response);
+    for (const chunk of chunks) {
+      await message.reply(chunk);
+    }
+  } catch (err) {
+    clearInterval(typingInterval);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    log.error("Error processing message", { error: errMsg });
+    await message.reply(formatError(errMsg));
+  }
+}
+
+async function handleInteraction(interaction: Interaction): Promise<void> {
+  if (!interaction.isChatInputCommand()) return;
+  if (!isAuthorized(interaction.user.id)) {
+    await interaction.reply({ content: "Unauthorized.", ephemeral: true });
+    return;
+  }
+
+  switch (interaction.commandName) {
+    case "status": {
+      const uptime = process.uptime();
+      const mem = process.memoryUsage();
+      await interaction.reply(
+        `🟢 **Wipp is running**\n` +
+          `Uptime: ${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s\n` +
+          `Memory: ${Math.round(mem.rss / 1024 / 1024)}MB RSS\n` +
+          `Queue: ${messageQueue.length} pending, ${messageQueue.isProcessing ? "processing" : "idle"}`,
+      );
+      break;
+    }
+    case "cancel": {
+      const cancelled = messageQueue.cancelCurrent();
+      await interaction.reply(
+        cancelled ? "✅ Cancelled current operation." : "Nothing to cancel.",
+      );
+      break;
+    }
+    case "model": {
+      const config = loadConfig();
+      await interaction.reply(
+        `**Models**\n` +
+          `Orchestrator: \`${config.COPILOT_ORCHESTRATOR_MODEL}\`\n` +
+          `Worker: \`${config.COPILOT_WORKER_MODEL}\``,
+      );
+      break;
+    }
+    default:
+      await interaction.reply({
+        content: `Command \`/${interaction.commandName}\` not yet implemented.`,
+        ephemeral: true,
+      });
+  }
+}
+
+async function registerSlashCommands(
+  token: string,
+  clientId: string,
+): Promise<void> {
+  const rest = new REST().setToken(token);
+  try {
+    await rest.put(Routes.applicationCommands(clientId), {
+      body: commands.map((c) => c.toJSON()),
+    });
+    log.info("Registered slash commands");
+  } catch (err) {
+    log.warn("Failed to register slash commands", { error: String(err) });
+  }
+}
+
+export async function startDiscordBot(): Promise<Client> {
+  _config = loadConfig();
+
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.DirectMessages,
+      GatewayIntentBits.MessageContent,
+    ],
+    partials: [Partials.Channel],
+  });
+
+  client.on(Events.MessageCreate, (msg) => void handleMessage(msg));
+  client.on(Events.InteractionCreate, (interaction) =>
+    void handleInteraction(interaction),
+  );
+
+  client.once(Events.ClientReady, (c) => {
+    log.info("Discord bot connected", { user: c.user.tag });
+    void registerSlashCommands(_config.DISCORD_BOT_TOKEN, c.user.id);
+  });
+
+  await client.login(_config.DISCORD_BOT_TOKEN);
+  _client = client;
+
+  return client;
+}
+
+export async function sendProactiveMessage(text: string): Promise<void> {
+  if (!_proactiveChannel) {
+    log.warn("No channel available for proactive message");
+    return;
+  }
+
+  const chunks = chunkMessage(text);
+  for (const chunk of chunks) {
+    await _proactiveChannel.send(chunk);
+  }
+}
+
+export async function stopDiscordBot(): Promise<void> {
+  if (_client) {
+    log.info("Disconnecting Discord bot");
+    await _client.destroy();
+    _client = null;
+  }
+}
