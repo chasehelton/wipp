@@ -151,8 +151,12 @@ async function handleMessage(
   _turnCount++;
 
   try {
+    const config = loadConfig();
     const response = await withRetry(async () => {
-      const result = await _session!.sendAndWait({ prompt: message });
+      const result = await _session!.sendAndWait(
+        { prompt: message },
+        config.ORCHESTRATOR_TIMEOUT,
+      );
       return (
         result?.data?.content ??
         "I processed your request but have no text response."

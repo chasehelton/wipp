@@ -136,7 +136,11 @@ export class WorkerManager {
     try {
       const fullPrompt = `You are working in the directory: ${worker.worktreePath}\nBranch: ${worker.branch}\n\nTask: ${prompt}`;
 
-      const response = await worker.session.sendAndWait({ prompt: fullPrompt });
+      const config = loadConfig();
+      const response = await worker.session.sendAndWait(
+        { prompt: fullPrompt },
+        config.WORKER_TIMEOUT,
+      );
       worker.lastOutput = response?.data?.content ?? "No output";
       worker.status = "completed";
       this.updateWorkerDb(worker.name, "completed", worker.lastOutput);

@@ -18,6 +18,7 @@ const envSchema = z.object({
   COPILOT_ORCHESTRATOR_MODEL: z.string().default("claude-opus-4.6"),
   COPILOT_WORKER_MODEL: z.string().default("claude-sonnet-4.6"),
   SESSION_MAX_TURNS: z.coerce.number().int().positive().default(15),
+  ORCHESTRATOR_TIMEOUT: z.coerce.number().int().positive().default(300_000),
   WORKER_TIMEOUT: z.coerce.number().int().positive().default(600_000),
   MAX_WORKERS: z.coerce.number().int().positive().max(3).default(2),
   REPOS_DIR: z.string().default(DEFAULT_REPOS_DIR),
