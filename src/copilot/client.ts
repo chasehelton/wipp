@@ -14,11 +14,32 @@ export async function getCopilotClient(): Promise<CopilotClient> {
 
   log.info("Creating Copilot client");
   const config = loadConfig();
-  _client = new CopilotClient({ githubToken: config.GITHUB_TOKEN });
+  _client = new CopilotClient({
+    githubToken: config.GITHUB_TOKEN,
+    // Keep auto-login enabled so the CLI can fall back to env-based auth
+    // (GITHUB_TOKEN, gh CLI) if SDK token validation fails.
+    useLoggedInUser: true,
+  });
 
-  // Start health check timer
+  // Ensure the client is started before checking auth
+  await _client.start();
+
+  // Verify authentication — fail fast with a clear message
+  const authStatus = await _client.getAuthStatus();
+  if (!authStatus.isAuthenticated) {
+    _client = null;
+    throw new Error(
+      `Copilot authentication failed. ${authStatus.statusMessage ?? ""}` +
+        `\nEnsure GITHUB_TOKEN is a fine-grained PAT (github_pat_*) with Copilot access, ` +
+        `NOT a classic PAT (ghp_*).`,
+    );
+  }
+  log.info("Copilot authenticated", {
+    authType: authStatus.authType,
+    login: authStatus.login,
+  });
+
   startHealthCheck();
-
   log.info("Copilot client ready");
   return _client;
 }
