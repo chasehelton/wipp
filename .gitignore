@@ -1,6 +1,10 @@
 /research
 /plans
 
+# Community skills (installed via skills.sh)
+skills/community/
+!skills/community/.gitkeep
+
 # Build output
 dist/
 
