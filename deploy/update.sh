@@ -29,24 +29,28 @@ npm install
 info "Building TypeScript..."
 npm run build
 
-# Reload the systemd unit file in case it changed
-info "Reloading systemd unit..."
-if diff -q "$WIPP_DIR/deploy/wipp.service" "$HOME/.config/systemd/user/wipp.service" &>/dev/null; then
-  info "Service file unchanged, skipping reload"
-else
-  warn "Service file changed — reinstalling..."
-  sed "s|/home/pi/wipp|$WIPP_DIR|g; s|/home/pi/.wipp|$HOME/.wipp|g; s|/home/pi/repos|$HOME/repos|g" \
-    "$WIPP_DIR/deploy/wipp.service" > "$HOME/.config/systemd/user/wipp.service"
+# Sync systemd unit file (always regenerate from template to pick up any changes)
+info "Syncing systemd unit file..."
+UNIT_DIR="$HOME/.config/systemd/user"
+UNIT_FILE="$UNIT_DIR/wipp.service"
+mkdir -p "$UNIT_DIR"
+GENERATED=$(sed "s|/home/pi/wipp|$WIPP_DIR|g; s|/home/pi/.wipp|$HOME/.wipp|g; s|/home/pi/repos|$HOME/repos|g" \
+  "$WIPP_DIR/deploy/wipp.service")
+if [ ! -f "$UNIT_FILE" ] || [ "$GENERATED" != "$(cat "$UNIT_FILE")" ]; then
+  echo "$GENERATED" > "$UNIT_FILE"
   systemctl --user daemon-reload
-  info "Service file updated"
+  systemctl --user enable wipp
+  info "Service file updated and reloaded"
+else
+  info "Service file unchanged"
 fi
 
-# Restart the daemon
+# Restart (or start if stopped) the daemon
 info "Restarting wipp service..."
 systemctl --user restart wipp
 
-# Wait briefly and confirm it's running
-sleep 2
+# Wait and confirm it's running
+sleep 3
 if systemctl --user is-active --quiet wipp; then
   info "wipp is running ✓"
   echo ""
