@@ -126,7 +126,10 @@ export async function startDiscordBot(): Promise<Client> {
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.DirectMessages,
-      GatewayIntentBits.MessageContent,
+      // MessageContent is a privileged intent requiring portal approval.
+      // DM content is readable without it (primary use case for wipp).
+      // To read message content in guild channels too, enable
+      // "Message Content Intent" at discord.com/developers/applications.
     ],
     partials: [Partials.Channel],
   });
