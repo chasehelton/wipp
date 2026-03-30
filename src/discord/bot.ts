@@ -10,6 +10,7 @@ import {
   type SendableChannels,
 } from "discord.js";
 import { loadConfig, type Config } from "../config.js";
+import { getAllRepos } from "../git/repos.js";
 import { messageQueue } from "../queue.js";
 import { createLogger } from "../utils/logger.js";
 import { chunkMessage, formatError } from "./formatter.js";
@@ -93,6 +94,18 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
           `Orchestrator: \`${config.COPILOT_ORCHESTRATOR_MODEL}\`\n` +
           `Worker: \`${config.COPILOT_WORKER_MODEL}\``,
       );
+      break;
+    }
+    case "repos": {
+      const repos = getAllRepos();
+      if (repos.length === 0) {
+        await interaction.reply("No repositories registered.");
+      } else {
+        const lines = repos.map(
+          (r) => `• **${r.name}** — \`${r.local_path}\` (default branch: \`${r.default_branch}\`)`,
+        );
+        await interaction.reply(`**Registered Repositories (${repos.length})**\n${lines.join("\n")}`);
+      }
       break;
     }
     default:
