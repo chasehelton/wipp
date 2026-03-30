@@ -13,16 +13,18 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("skills");
 
-// Resolve the bundled skills directory (relative to this file's location in dist/)
+// Resolve skill directories relative to this file's location in dist/
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const BUNDLED_SKILLS_DIR = join(__dirname, "..", "..", "skills");
+const PROJECT_ROOT = join(__dirname, "..", "..");
+const BUNDLED_SKILLS_DIR = join(PROJECT_ROOT, "skills", "bundled");
+const COMMUNITY_SKILLS_DIR = join(PROJECT_ROOT, "skills", "community");
 
 // Global skills shared across agent tools
 const GLOBAL_SKILLS_DIR = join(process.env.HOME ?? "~", ".agents", "skills");
 
 export interface SkillInfo {
   name: string;
-  location: "bundled" | "user" | "global";
+  location: "bundled" | "project" | "user" | "global";
   path: string;
   description?: string;
 }
@@ -82,6 +84,7 @@ function scanSkillDirectory(
 export function getAllSkills(): SkillInfo[] {
   return [
     ...scanSkillDirectory(BUNDLED_SKILLS_DIR, "bundled"),
+    ...scanSkillDirectory(COMMUNITY_SKILLS_DIR, "project"),
     ...scanSkillDirectory(SKILLS_DIR, "user"),
     ...scanSkillDirectory(GLOBAL_SKILLS_DIR, "global"),
   ];
@@ -89,7 +92,7 @@ export function getAllSkills(): SkillInfo[] {
 
 export function getSkillDirectories(): string[] {
   const dirs: string[] = [];
-  for (const dir of [BUNDLED_SKILLS_DIR, SKILLS_DIR, GLOBAL_SKILLS_DIR]) {
+  for (const dir of [BUNDLED_SKILLS_DIR, COMMUNITY_SKILLS_DIR, SKILLS_DIR, GLOBAL_SKILLS_DIR]) {
     if (existsSync(dir)) {
       dirs.push(dir);
     }
@@ -98,7 +101,7 @@ export function getSkillDirectories(): string[] {
 }
 
 export function installSkill(slug: string, content: string): string {
-  const skillDir = join(SKILLS_DIR, slug);
+  const skillDir = join(COMMUNITY_SKILLS_DIR, slug);
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(join(skillDir, "SKILL.md"), content, "utf-8");
   log.info("Installed skill", { slug, path: skillDir });
@@ -106,12 +109,22 @@ export function installSkill(slug: string, content: string): string {
 }
 
 export function uninstallSkill(slug: string): boolean {
-  const skillDir = join(SKILLS_DIR, slug);
-  if (!existsSync(skillDir)) return false;
+  // Check project community dir first, then fall back to user dir
+  const communityDir = join(COMMUNITY_SKILLS_DIR, slug);
+  if (existsSync(communityDir)) {
+    rmSync(communityDir, { recursive: true });
+    log.info("Uninstalled skill from community dir", { slug });
+    return true;
+  }
 
-  rmSync(skillDir, { recursive: true });
-  log.info("Uninstalled skill", { slug });
-  return true;
+  const userDir = join(SKILLS_DIR, slug);
+  if (existsSync(userDir)) {
+    rmSync(userDir, { recursive: true });
+    log.info("Uninstalled skill from user dir", { slug });
+    return true;
+  }
+
+  return false;
 }
 
 export interface SkillsShResult {

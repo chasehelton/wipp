@@ -14,5 +14,9 @@ node_modules/
 *.db
 *.db-journal
 
+# Community skills (installed via skills.sh)
+skills/community/
+!skills/community/.gitkeep
+
 # OS
 .DS_Store
