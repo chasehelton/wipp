@@ -48,7 +48,7 @@ fi
 # Install dependencies
 info "Installing npm dependencies..."
 cd "$WIPP_DIR"
-npm install --production
+npm install
 
 # Build TypeScript
 info "Building TypeScript..."
