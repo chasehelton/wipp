@@ -1,4 +1,5 @@
 import { CopilotClient } from "@github/copilot-sdk";
+import { loadConfig } from "../config.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("copilot");
@@ -12,7 +13,8 @@ export async function getCopilotClient(): Promise<CopilotClient> {
   if (_client) return _client;
 
   log.info("Creating Copilot client");
-  _client = new CopilotClient();
+  const config = loadConfig();
+  _client = new CopilotClient({ githubToken: config.GITHUB_TOKEN });
 
   // Start health check timer
   startHealthCheck();
