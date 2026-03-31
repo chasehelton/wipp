@@ -14,6 +14,9 @@ const envSchema = z.object({
     .min(1, "DISCORD_AUTHORIZED_USER_ID is required"),
   GITHUB_TOKEN: z.string().min(1, "GITHUB_TOKEN is required"),
 
+  // Optional — integrations
+  LINEAR_API_KEY: z.string().optional(),
+
   // Optional with defaults
   COPILOT_ORCHESTRATOR_MODEL: z.string().default("claude-opus-4.6"),
   COPILOT_WORKER_MODEL: z.string().default("claude-sonnet-4.6"),

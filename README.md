@@ -45,6 +45,7 @@ Configure in `~/.wipp/.env`:
 | `WORKER_TIMEOUT` | No | Worker timeout in ms (default: `600000`) |
 | `MAX_WORKERS` | No | Max concurrent workers (default: `2`) |
 | `REPOS_DIR` | No | Directory for git repos (default: `~/repos`) |
+| `LINEAR_API_KEY` | No | Linear Personal API Key — enables Linear integration |
 
 ## Discord Commands
 
@@ -69,6 +70,16 @@ When you send `/work <issue-url>`, wipp follows this flow:
 8. **Report** — Sends the PR link back to Discord
 
 All work happens in isolated worktrees, so the main repo stays clean.
+
+## Linear Integration
+
+If `LINEAR_API_KEY` is set, wipp can work with Linear issues and projects:
+
+- **Read issues**: "What's on my Linear backlog?" or "Work on ENG-123"
+- **Create issues/projects**: "Create a Linear issue for fixing the auth bug"
+- **Auto-status sync**: When wipp starts work on a Linear issue, it moves the issue to "In Progress". When a PR is created, it moves it to "Done".
+
+To set up, generate a Personal API Key at [linear.app/settings/api](https://linear.app/settings/api) and add it to `~/.wipp/.env`.
 
 ## Development
 

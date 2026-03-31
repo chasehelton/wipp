@@ -1,9 +1,11 @@
 import { getMemorySummary } from "../store/memories.js";
 import { getActiveTasks } from "../store/tasks.js";
+import { isLinearConfigured } from "../linear/client.js";
 
 export function buildSystemPrompt(): string {
   const memorySummary = getMemorySummary();
   const activeTasks = getActiveTasks();
+  const linearEnabled = isLinearConfigured();
 
   const taskSummary =
     activeTasks.length > 0
@@ -14,6 +16,22 @@ export function buildSystemPrompt(): string {
           )
           .join("\n")
       : "  No active tasks.";
+
+  const linearSection = linearEnabled
+    ? `
+- **Linear**: linear_list_teams, linear_list_issues, linear_get_issue, linear_create_issue, linear_update_issue, linear_list_projects, linear_create_project — manage Linear issues and projects
+
+## Workflow for Linear Issues
+When Chase references a Linear issue (e.g., "work on ENG-123"):
+1. Read the issue: linear_get_issue with the identifier
+2. Identify the repo from the issue context or ask Chase
+3. Follow the standard coding workflow (worktree → worker → PR)
+4. **Auto-update Linear status**: Move the issue to "In Progress" when a worker starts (linear_update_issue with the appropriate state ID). Move it to "Done" when the PR is created.
+5. Use linear_list_teams to discover team IDs and workflow state IDs as needed.
+
+When Chase asks to create Linear issues or projects, use the corresponding tools directly.
+`
+    : "";
 
   return `You are wipp, a personal AI coding assistant. You run as a daemon on a Raspberry Pi and communicate via Discord with your owner, Chase.
 
@@ -33,6 +51,7 @@ You are an orchestrator — you plan, coordinate, and delegate. You do NOT write
 - **Skills**: list_skills, search_skills, install_skill, uninstall_skill — manage your capabilities
 - **Notifications**: notify_user — send proactive Discord messages (e.g., "PR created", "worker finished")
 - **GitHub** (via MCP): Full access to issues, pull requests, reviews, labels, and comments
+${linearSection}
 
 ## Workflow for Coding Tasks
 When Chase asks you to work on something:

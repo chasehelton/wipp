@@ -12,6 +12,8 @@ import {
   installSkill,
   uninstallSkill,
 } from "./skills.js";
+import { linearTools } from "../linear/tools.js";
+import { isLinearConfigured } from "../linear/client.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("tools");
@@ -499,4 +501,5 @@ export const orchestratorTools = [
   searchSkillsTool,
   installSkillTool,
   uninstallSkillTool,
+  ...(isLinearConfigured() ? linearTools : []),
 ];
