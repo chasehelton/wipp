@@ -111,6 +111,7 @@ export class StatusMessage {
         this.editTimer = null;
         void this.doEdit();
       }, StatusMessage.EDIT_THROTTLE_MS - timeSinceLastEdit);
+      this.editTimer.unref();
     }
   }
 
