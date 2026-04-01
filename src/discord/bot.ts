@@ -13,7 +13,8 @@ import { loadConfig, type Config } from "../config.js";
 import { getAllRepos } from "../git/repos.js";
 import { messageQueue } from "../queue.js";
 import { createLogger } from "../utils/logger.js";
-import { chunkMessage, formatError } from "./formatter.js";
+import { chunkMessage, formatError, formatWorkerStatus } from "./formatter.js";
+import { workerManager } from "../copilot/workers.js";
 import { commands } from "./commands.js";
 
 const log = createLogger("discord");
@@ -94,6 +95,11 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
           `Orchestrator: \`${config.COPILOT_ORCHESTRATOR_MODEL}\`\n` +
           `Worker: \`${config.COPILOT_WORKER_MODEL}\``,
       );
+      break;
+    }
+    case "workers": {
+      const workers = workerManager.getActiveWorkers();
+      await interaction.reply(formatWorkerStatus(workers));
       break;
     }
     case "repos": {
