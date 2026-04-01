@@ -252,6 +252,10 @@ export async function sendProactiveMessage(text: string): Promise<void> {
 }
 
 export async function stopDiscordBot(): Promise<void> {
+  statusEmitter.removeAllListeners();
+  workerManager.events.removeAllListeners();
+  _activeStatus = null;
+
   if (_client) {
     log.info("Disconnecting Discord bot");
     await _client.destroy();
