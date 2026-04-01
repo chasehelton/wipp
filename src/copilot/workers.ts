@@ -1,3 +1,4 @@
+import EventEmitter from "node:events";
 import { type CopilotSession, approveAll } from "@github/copilot-sdk";
 import { getCopilotClient } from "./client.js";
 import { loadConfig } from "../config.js";
@@ -23,6 +24,7 @@ interface ManagedWorker {
 }
 
 export class WorkerManager {
+  public readonly events = new EventEmitter();
   private workers = new Map<string, ManagedWorker>();
   private workerCounter = 0;
 
@@ -109,6 +111,8 @@ export class WorkerManager {
       worktree: worktree.path,
     });
 
+    this.events.emit("worker:created", { name: workerName, branch: worktree.branch, worktreePath: worktree.path });
+
     return { workerName, worktreePath: worktree.path, branch: worktree.branch };
   }
 
@@ -122,6 +126,7 @@ export class WorkerManager {
 
     worker.status = "working";
     this.updateWorkerDb(workerName, "working");
+    this.events.emit("worker:taskStarted", { name: workerName });
 
     // Fire-and-forget — caller polls via checkWorker
     void this.executeWorkerTask(worker, prompt);
@@ -146,6 +151,7 @@ export class WorkerManager {
       this.updateWorkerDb(worker.name, "completed", worker.lastOutput);
 
       log.info("Worker completed", { name: worker.name });
+      this.events.emit("worker:completed", { name: worker.name });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       worker.lastOutput = `Error: ${errMsg}`;
@@ -153,6 +159,7 @@ export class WorkerManager {
       this.updateWorkerDb(worker.name, "failed", worker.lastOutput);
 
       log.error("Worker failed", { name: worker.name, error: errMsg });
+      this.events.emit("worker:failed", { name: worker.name, error: errMsg });
     }
   }
 
@@ -196,6 +203,7 @@ export class WorkerManager {
     this.workers.delete(workerName);
 
     log.info("Killed worker", { name: workerName });
+    this.events.emit("worker:killed", { name: workerName });
     return { killed: true };
   }
 
