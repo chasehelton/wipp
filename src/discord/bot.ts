@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 import { loadConfig, type Config } from "../config.js";
 import { getAllRepos } from "../git/repos.js";
+import { getMemorySummary } from "../store/memories.js";
 import { messageQueue } from "../queue.js";
 import { createLogger } from "../utils/logger.js";
 import { chunkMessage, formatError, formatWorkerStatus } from "./formatter.js";
@@ -125,6 +126,19 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
           .map((r) => `• **${r.name}** — \`${r.local_path}\` (branch: \`${r.default_branch}\`)`)
           .join("\n");
         await interaction.reply(`**Repos (${repos.length})**\n${list}`);
+      }
+      break;
+    }
+    case "memory": {
+      const summary = getMemorySummary();
+      if (!summary || summary === "No memories stored yet.") {
+        await interaction.reply({ content: "No memories stored yet.", ephemeral: true });
+      } else {
+        const content = `**📝 Stored Memories**\n\n${summary}`;
+        await interaction.reply({
+          content: content.length > 2000 ? content.slice(0, 1997) + "..." : content,
+          ephemeral: true,
+        });
       }
       break;
     }
