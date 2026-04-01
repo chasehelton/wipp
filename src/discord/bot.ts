@@ -16,6 +16,7 @@ import { createLogger } from "../utils/logger.js";
 import { chunkMessage, formatError, formatWorkerStatus } from "./formatter.js";
 import { StatusMessage } from "./status.js";
 import { workerManager } from "../copilot/workers.js";
+import { statusEmitter } from "../copilot/status-hooks.js";
 import { commands } from "./commands.js";
 
 const log = createLogger("discord");
@@ -176,12 +177,26 @@ export async function startDiscordBot(): Promise<Client> {
   await client.login(_config.DISCORD_BOT_TOKEN);
   _client = client;
 
+  // Set up orchestrator tool-call status hooks
+  statusEmitter.on("tool:start", ({ toolName, label }: { toolName: string; label: string }) => {
+    void (async () => {
+      if (!_proactiveChannel) return;
+      if (!_activeStatus) {
+        _activeStatus = new StatusMessage("Processing...");
+        await _activeStatus.send(_proactiveChannel);
+      }
+      _activeStatus.addStep(label);
+    })();
+  });
+
   // Set up worker lifecycle event listeners for live status messages
   workerManager.events.on("worker:created", ({ branch }: { name: string; branch: string; worktreePath: string }) => {
     void (async () => {
-      if (!_proactiveChannel || _activeStatus) return;
-      _activeStatus = new StatusMessage(`Working on ${branch}`);
-      await _activeStatus.send(_proactiveChannel);
+      if (!_proactiveChannel) return;
+      if (!_activeStatus) {
+        _activeStatus = new StatusMessage(`Working on ${branch}`);
+        await _activeStatus.send(_proactiveChannel);
+      }
       _activeStatus.addStep("Worktree created", "done");
       _activeStatus.addStep("Worker spawned", "done");
       _activeStatus.addStep("Coding...", "active");
