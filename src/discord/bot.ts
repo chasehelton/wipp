@@ -41,18 +41,12 @@ async function handleMessage(message: Message): Promise<void> {
   const channel = message.channel;
   if (!channel.isSendable()) return;
 
-  // Store the channel for proactive messages
   _proactiveChannel = channel;
 
-  // Show typing indicator
-  const typingInterval = setInterval(() => {
-    void channel.sendTyping();
-  }, 4000);
-  void channel.sendTyping();
+  const pendingReply = await message.reply("⏳ Thinking...");
 
   try {
     const response = await messageQueue.enqueue(content, "discord");
-    clearInterval(typingInterval);
 
     if (_activeStatus) {
       await _activeStatus.finalize("success");
@@ -60,12 +54,11 @@ async function handleMessage(message: Message): Promise<void> {
     }
 
     const chunks = chunkMessage(response);
-    for (const chunk of chunks) {
-      await message.reply(chunk);
+    await pendingReply.edit(chunks[0]);
+    for (let i = 1; i < chunks.length; i++) {
+      await message.reply(chunks[i]);
     }
   } catch (err) {
-    clearInterval(typingInterval);
-
     if (_activeStatus) {
       await _activeStatus.finalize("failure");
       _activeStatus = null;
@@ -73,7 +66,7 @@ async function handleMessage(message: Message): Promise<void> {
 
     const errMsg = err instanceof Error ? err.message : String(err);
     log.error("Error processing message", { error: errMsg });
-    await message.reply(formatError(errMsg));
+    await pendingReply.edit(formatError(errMsg));
   }
 }
 
