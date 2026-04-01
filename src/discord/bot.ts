@@ -14,6 +14,7 @@ import { getAllRepos } from "../git/repos.js";
 import { messageQueue } from "../queue.js";
 import { createLogger } from "../utils/logger.js";
 import { chunkMessage, formatError, formatWorkerStatus } from "./formatter.js";
+import { StatusMessage } from "./status.js";
 import { workerManager } from "../copilot/workers.js";
 import { commands } from "./commands.js";
 
@@ -22,6 +23,7 @@ const log = createLogger("discord");
 let _client: Client | null = null;
 let _config: Config;
 let _proactiveChannel: SendableChannels | null = null;
+let _activeStatus: StatusMessage | null = null;
 
 function isAuthorized(userId: string): boolean {
   return userId === _config.DISCORD_AUTHORIZED_USER_ID;
@@ -50,12 +52,23 @@ async function handleMessage(message: Message): Promise<void> {
     const response = await messageQueue.enqueue(content, "discord");
     clearInterval(typingInterval);
 
+    if (_activeStatus) {
+      await _activeStatus.finalize("success");
+      _activeStatus = null;
+    }
+
     const chunks = chunkMessage(response);
     for (const chunk of chunks) {
       await message.reply(chunk);
     }
   } catch (err) {
     clearInterval(typingInterval);
+
+    if (_activeStatus) {
+      await _activeStatus.finalize("failure");
+      _activeStatus = null;
+    }
+
     const errMsg = err instanceof Error ? err.message : String(err);
     log.error("Error processing message", { error: errMsg });
     await message.reply(formatError(errMsg));
@@ -162,6 +175,37 @@ export async function startDiscordBot(): Promise<Client> {
 
   await client.login(_config.DISCORD_BOT_TOKEN);
   _client = client;
+
+  // Set up worker lifecycle event listeners for live status messages
+  workerManager.events.on("worker:created", ({ branch }: { name: string; branch: string; worktreePath: string }) => {
+    void (async () => {
+      if (!_proactiveChannel || _activeStatus) return;
+      _activeStatus = new StatusMessage(`Working on ${branch}`);
+      await _activeStatus.send(_proactiveChannel);
+      _activeStatus.addStep("Worktree created", "done");
+      _activeStatus.addStep("Worker spawned", "done");
+      _activeStatus.addStep("Coding...", "active");
+    })();
+  });
+
+  workerManager.events.on("worker:completed", ({ name: _name }: { name: string }) => {
+    if (_activeStatus) {
+      _activeStatus.updateStep("Coding...", "done");
+      _activeStatus.addStep("Worker finished", "done");
+    }
+  });
+
+  workerManager.events.on("worker:failed", ({ name: _name }: { name: string; error: string }) => {
+    if (_activeStatus) {
+      _activeStatus.updateStep("Coding...", "failed");
+    }
+  });
+
+  workerManager.events.on("worker:killed", ({ name: _name }: { name: string }) => {
+    if (_activeStatus) {
+      _activeStatus.updateStep("Coding...", "failed");
+    }
+  });
 
   return client;
 }
