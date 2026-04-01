@@ -6,6 +6,7 @@ import {
   setWorkerCallbacks,
   setNotifyCallback,
 } from "./tools.js";
+import { createStatusHooks } from "./status-hooks.js";
 import { workerManager } from "./workers.js";
 import { getSkillDirectories } from "./skills.js";
 import { loadConfig } from "../config.js";
@@ -116,6 +117,7 @@ async function createOrchestratorSession(): Promise<void> {
       },
     },
     onPermissionRequest: approveAll,
+    hooks: createStatusHooks(),
   });
 
   _turnCount = 0;
