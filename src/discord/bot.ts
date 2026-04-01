@@ -16,6 +16,7 @@ import { createLogger } from "../utils/logger.js";
 import { chunkMessage, formatError, formatWorkerStatus } from "./formatter.js";
 import { StatusMessage } from "./status.js";
 import { workerManager } from "../copilot/workers.js";
+import { getMemorySummary } from "../store/memories.js";
 import { statusEmitter } from "../copilot/status-hooks.js";
 import { commands } from "./commands.js";
 
@@ -125,6 +126,18 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
           .map((r) => `• **${r.name}** — \`${r.local_path}\` (branch: \`${r.default_branch}\`)`)
           .join("\n");
         await interaction.reply(`**Repos (${repos.length})**\n${list}`);
+      }
+      break;
+    }
+    case "memory": {
+      const summary = getMemorySummary();
+      if (!summary || summary === "No memories stored yet.") {
+        await interaction.reply("🧠 No memories stored yet.");
+      } else {
+        const formatted = `🧠 **Memories**\n\`\`\`\n${summary}\n\`\`\``;
+        await interaction.reply(
+          formatted.length > 2000 ? formatted.slice(0, 1997) + "..." : formatted,
+        );
       }
       break;
     }
